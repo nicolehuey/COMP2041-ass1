@@ -1,0 +1,122 @@
+#!/usr/local/bin/dash
+# check if .legit repo is initialised
+if ! test -e ".legit"
+  then
+    echo "legit-status: error: no .legit directory containing legit repository exists" 1>&2
+    exit 1
+fi
+
+# check if there exist commits
+if ! test -e "./.legit/log.txt"
+then
+  echo "legit-status: error: your repository does not have any commits yet" 1>&2
+  exit 1
+fi
+
+if test -e "tempfile"
+then
+  rm "tempfile"
+fi
+# get all files in currdir
+filenames=`ls` 2>/dev/null
+for f in $filenames
+do
+
+  # 1. set filestatus for all files in currdir as untracked
+  filestatus="untracked"
+
+  # check if file has been committed or added into index
+
+  # 2. for file added in index and never committed
+  if test -e "./.legit/index/$f" && ! test -e "./.legit/committed/$f"
+  then
+    filestatus="added to index"
+  fi
+
+  # for added file in index not yet committed, check if index same w currdir
+  if test -e "./.legit/index/$f" && test -e "./.legit/committed/$f"
+  then
+    num=`head -1 "./.legit/log.txt" | cut -d' ' -f1`
+    cp  "./.legit/index/$f"  "index_temp"
+    cp  "./.legit/committed/$f/$num/$f"  "commit_temp"
+
+    # 3. if index and currdir is the same, not yet committed
+    if diff "$f" "index_temp" > /dev/null && ! diff "index_temp" "commit_temp" > /dev/null
+    then
+      filestatus="file changed, changes staged for commit"
+    # 4. index and currdir and commit all diff
+  elif ! diff "$f" "index_temp" > /dev/null && ! diff "index_temp" "commit_temp" > /dev/null
+    then
+      filestatus="file changed, different changes staged for commit"
+    # 5. for committed then edited file in currdir but not yet added to index
+  elif ! diff "$f" "index_temp" > /dev/null
+    then
+      filestatus="file changed, changes not staged for commit"
+    # 6. file in currdir, index , committed all the same
+    else
+      filestatus="same as repo"
+    fi
+    rm "index_temp" "commit_temp"
+  fi
+
+  # put all files status in a temp file to be sorted
+  if ! test -e "./tempfile"
+  then
+    echo "$f - $filestatus" > "./tempfile"
+  else
+      echo "$f - $filestatus" >> "./tempfile"
+  fi
+done
+
+# check files that exist in index or committed only
+# untracked if file not in index but in currdir
+# only check for latest commit
+if test -e "./.legit/committed"
+then
+  num=`head -1 "./.legit/log.txt" | cut -d' ' -f1`
+  commitfilenames=`ls ./.legit/committed/` 2>/dev/null
+  # find files in committed but not in the status list yet
+  for f in $commitfilenames
+  do
+    found=0
+    filestatus="False"
+    for line in $(cat "tempfile"  2>/dev/null)
+    do
+      line=`echo $line | sed 's/ - /\//g'| cut -d'/' -f1`
+      if test "$line" = "$f"
+      then
+        found=1
+        break
+      fi
+    done
+
+    if test $found -eq 0
+    then
+      # 7. if file is not in index, was legit-rm
+      if ! test -e "./.legit/index/$f" && test -e "./.legit/committed/$f/$num"
+      then
+        filestatus="deleted"
+      elif test -e "./.legit/index/$f" && test -e "./.legit/committed/$f/$num"
+      then
+        filestatus="file deleted"
+      fi
+      # add the status into tempfile
+      if ! test "$filestatus" = 'False'
+      then
+        if ! test -e "./tempfile"
+        then
+          echo "$f - $filestatus" > "./tempfile"
+        else
+            echo "$f - $filestatus" >> "./tempfile"
+        fi
+      fi
+    fi
+  done
+fi
+
+# sort status list in tempfile and rm tempfile afterwards
+if test -s "./tempfile"
+then
+  sort "./tempfile"
+  rm "./tempfile"
+fi

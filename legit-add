@@ -1,0 +1,84 @@
+#!/usr/local/bin/dash
+
+# check if .legit repo is initialised
+if ! test -e ".legit"
+  then
+    echo "legit-add: error: no .legit directory containing legit repository exists" 1>&2
+    exit 1
+fi
+
+
+# check if files to add are valid
+# copy all current files in index to files
+for f in "$@"
+do
+  if ! test -e "./$f"
+    then
+      # for file not in currdir but in index
+      # copy files from index to files dir for commit
+      if test -e "./.legit/index/$f"
+      then
+          if ! test -e "./.legit/files"
+            then
+              `mkdir ./.legit/files`
+          fi
+          cp  "./.legit/index/$f" "temp"
+          cp -f "temp" "./.legit/files/$f"
+          rm "temp"
+          exit 1
+      # for file not in currdir
+      else
+        echo "legit-add: error: can not open '$f'" 1>&2
+        exit 1
+      fi
+    # if filename is invalid
+    else
+      if !(echo $f | egrep -q ^[a-zA-Z0-9._\-]+$)
+      then
+        echo "legit-add: error: invalid filename '$f'" 1>&2
+        exit 1
+      fi
+  fi
+done
+
+# create index and file directory if doesnt exist
+if ! test -e "./.legit/files"
+    then
+        `mkdir ./.legit/files`
+fi
+
+if ! test -e "./.legit/index"
+    then
+        `mkdir ./.legit/index`
+fi
+
+# add file to the index and files dir if there is changes
+new=0
+for file in "$@"
+do
+    # if the file alrd exist in the repo, append to the file
+    if test -f "./.legit/index/$file"
+      then
+        # check if the content is the same
+        # update the files in index if diff
+        cp  "./.legit/index/$file" "temp"
+        if ! diff "$file" "temp" > /dev/null
+        then
+          new=1
+          cp -f "$file" "./.legit/files/$file"
+          cp -f "$file" "./.legit/index/$file"
+        fi
+        rm "temp"
+    # if new file added add into index and files to be committed
+    else
+       cp "$file" "./.legit/files"
+       cp "$file" "./.legit/index"
+       new=1
+    fi
+done
+
+# if no new changes to files to be committed, remove files dir
+if test $new -eq 0
+then
+  rm -rf "./.legit/files"
+fi

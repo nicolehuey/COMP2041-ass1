@@ -1,0 +1,15 @@
+#!/usr/local/bin/dash
+
+# check if .legit repo is initialised
+if ! test -e ".legit"
+  then
+    echo "legit-log: error: no .legit directory containing legit repository exists" 1>&2
+    exit 1
+fi
+# check if logfile exists (committed files exist)
+if test -e "./.legit/log.txt"
+then
+  echo "`cat "./.legit/log.txt" `"
+else
+  echo "legit-log: error: your repository does not have any commits yet" 1>&2
+fi

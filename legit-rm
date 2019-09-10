@@ -1,0 +1,218 @@
+#!/usr/local/bin/dash
+# check if .legit repo is initialised
+if ! test -e ".legit"
+  then
+    echo "legit-rm: error: no .legit directory containing legit repository exists" 1>&2
+    exit 1
+fi
+
+# if no files were committed before
+if ! test -e ".legit/committed"
+then
+  echo "legit-rm: error: your repository does not have any commits yet" 1>&2
+  exit 1
+fi
+
+##### error checking for given files  ######
+# check if filenames are given
+if test $# -lt 1
+then
+  echo "usage: legit-rm [--force] [--cached] <filenames>" 1>&2
+  exit 1
+elif (test $1 = '--cached' && test $# -eq 1)
+then
+  echo "usage: legit-rm [--force] [--cached] <filenames>" 1>&2
+  exit 1
+elif (test $1 = '--force' && test $# -eq 1)
+then
+  echo "usage: legit-rm [--force] [--cached] <filenames>" 1>&2
+  exit 1
+elif (test $# -eq 2 && test $1 = '--force' && test $2 = '--cached')
+then
+  echo "usage: legit-rm [--force] [--cached] <filenames>" 1>&2
+  exit 1
+elif (test $# -eq 2 && test $2 = '--force' && test $1 = '--cached' )
+then
+  echo "usage: legit-rm [--force] [--cached] <filenames>" 1>&2
+  exit 1
+
+else
+  # get the filename from command line arguments
+  iscached=0
+  isforce=0
+  # check if --cached or --force option is specified
+  for f in "$@"
+  do
+    isflag=0
+    if test $f = '--cached'
+    then
+      iscached=1
+      continue
+    elif test $f = '--force'
+    then
+      isforce=1
+      continue
+    fi
+
+    # check for invalid filename
+    if !(echo $f | egrep -q ^[a-zA-Z0-9._\-]+$)
+    then
+      echo "legit-rm: error: invalid filename '$f'" 1>&2
+      exit 1
+    fi
+
+    # print error msg if user enter words with - but not cached or force
+    if (echo $f | egrep -q ^[\-]+)
+    then
+      if (test $f != '--cached' || test $f != '--force')
+      then
+        echo "usage: legit-rm [--force] [--cached] <filenames>" 1>&2
+        exit 1
+      fi
+
+    # if file is not in the repository
+    elif ! test -e $f
+    then
+        echo "legit-rm: error: '$f' is not in the legit repository" 1>&2
+        exit 1
+
+   # file is in currdir but not in index
+    elif test -e $f && ! test -e "./.legit/index/$f"
+    then
+
+        echo "legit-rm: error: '$f' is not in the legit repository" 1>&2
+        exit 1
+
+    # if --force option is not specified
+    # print error msg to avoid user losing work when applicable
+    else
+        if test $isforce = 0
+        then
+          # check for diff in index or diff in commit w file in currdir
+          curr_diff=0
+          index_diff=0
+          # if no committed files yet
+          if ! test -e "./.legit/log.txt"
+          then
+            cp  "./.legit/index/$f"  "index_temp"
+            if ! diff "./$f" "index_temp" > /dev/null
+            then
+              index_diff=1
+            fi
+            rm "index_temp"
+          else
+            # if file is not committed in the latest commit
+            num=`head -1 "./.legit/log.txt" | cut -d' ' -f1`
+
+            if ! test -e "./.legit/committed/$f/$num"
+            then
+              # if file is never committed and exist in index
+              if test -e "./.legit/index/$f" && ! test -e "./.legit/committed/$f"
+              then
+                cp  "./.legit/index/$f"  "index_temp"
+                if ! diff "./$f" "index_temp" > /dev/null
+                then
+                  index_diff=1
+                  echo "legit-rm: error: '$f' in index is different to both working file and repository" 1>&2
+                  rm "index_temp"
+                  exit 1
+                # if file exist in index and not recently committed in last commit
+                else
+                  if test $iscached = 0
+                  then
+                    echo "legit-rm: error: '$f' has changes staged in the index" 1>&2
+                    rm "index_temp"
+                    exit 1
+                  fi
+                fi
+
+              # if file is not committed in the latest commit and exist in index
+              elif test -e "./.legit/index/$f"
+                then
+                  index_diff=1
+              else
+                continue
+              fi
+            fi
+
+            # file in currdir diff w latest commit but latest commit same w index
+            cp  "./.legit/index/$f"  "index_temp"
+            if test -e "./.legit/committed/$f/$num/$f"
+            then
+              cp  "./.legit/committed/$f/$num/$f"  "commit_temp"
+              if ! diff "./$f" "commit_temp" > /dev/null && ! diff "./$f" "index_temp" > /dev/null
+              then
+                curr_diff=1
+              fi
+
+              # file in latest commit is diff with file in index
+              if ! diff "commit_temp" "index_temp" > /dev/null
+              then
+                index_diff=1
+              fi
+              rm "commit_temp"
+            fi
+            rm "index_temp"
+         fi
+
+         # print error messages
+         # file in latest commit ,file in index and file in currdir is diff
+         if test $curr_diff = 1 && test $index_diff = 1
+          then
+            echo "legit-rm: error: '$f' in index is different to both working file and repository" 1>&2
+            exit 1
+         # file in latest commit is diff with file in index, or file never committed is diff in currdir and index
+         elif test $index_diff = 1 && test $iscached = 0
+          then
+              echo "legit-rm: error: '$f' has changes staged in the index" 1>&2
+              exit 1
+          # file in latest commit is diff with file in currdir(same with index)
+          elif test $curr_diff = 1 && test $iscached = 0
+          then
+            echo "legit-rm: error: '$f' in repository is different to working file" 1>&2
+            exit 1
+          fi
+
+        fi
+     fi
+  done
+
+fi
+
+#### remove files ####
+for file in "$@"
+do
+  if test $file = '--force' || test $file = '--cached'
+  then
+    continue
+  fi
+  ### legit-rm [--force] file ##
+  if test $iscached = 0
+  then
+    rm $file
+    rm "./.legit/index/$file"
+  ### legit-rm --cached file ##
+  elif test $iscached = 1
+  then
+    rm "./.legit/index/$file"
+  fi
+  # remove files in file dir too to avoid being committed
+  if test -e "./.legit/files/$file"
+  then
+    rm "./.legit/files/$file"
+  fi
+done
+# create files dir if doesnt exist
+if ! test -e "./.legit/files"
+  then
+    `mkdir ./.legit/files`
+fi
+# move files in index to dir named files to be committed
+filenames=`ls ./.legit/index/*` 2>/dev/null
+for eachfile in $filenames
+do
+  f=`echo $eachfile | cut -d'/' -f4`
+  cp  "./.legit/index/$f" "temp"
+  cp -f "temp" "./.legit/files/$f"
+  rm "temp"
+done

@@ -1,0 +1,102 @@
+#!/usr/local/bin/dash
+
+# check if .legit repo is initialised
+if ! test -e ".legit"
+  then
+    echo "legit-commit: error: no .legit directory containing legit repository exists" 1>&2
+    exit 1
+fi
+
+# check for input for error msgs
+if test $# -lt 2 || test $# -gt 3
+then
+  echo "usage: legit-commit [-a] -m commit-message" 1>&2
+  exit 1
+elif test $1 != '-a' && test $# -eq 3
+then
+   echo "usage: legit-commit [-a] -m commit-message" 1>&2
+   exit 1
+else
+   # for commit -a
+   if test "$1" = "-a"
+   then
+    # add file to the index and files dir if there is changes
+    # get files from index
+    indexfilenames=`ls ./.legit/index/` 2>/dev/null
+    for file in $indexfilenames
+    do
+        # if the file alrd exist in the repo, append to the file
+        if test -e "./$file"
+          then
+            # check if the content is the same
+            # update the files in index if diff
+            cp  "./.legit/index/$file" "temp"
+            if ! diff "$file" "temp" > /dev/null
+            then
+              if ! test -e "./.legit/files"
+                  then
+                      `mkdir ./.legit/files`
+              fi
+              cp -f "$file" "./.legit/files/$file"
+              cp -f "$file" "./.legit/index/$file"
+            fi
+            rm "temp"
+        fi
+
+    done
+  fi
+
+  if ! test -e "./.legit/files"
+  then
+      echo "nothing to commit"
+      exit 0
+  fi
+
+  # get the commit message
+  if test "$1" = "-a"
+  then
+    msg=`echo $3|sed s/\"//g`
+  else
+    msg=`echo $2|sed s/\"//g`
+  fi
+
+  # adding logs into log.txt
+  if test -e "./.legit/log.txt"
+      then
+          # not the first commit
+          #echo got log
+          num=`cat "./.legit/log.txt" | head -1|cut -d' ' -f1`
+          #echo $num
+          num=$((num+1))
+          echo "Committed as commit $num"
+          echo $num $msg | cat - "./.legit/log.txt" > temp && mv temp "./.legit/log.txt"
+      else
+        # first commit
+        num=0
+        `echo $num $msg > "./.legit/log.txt"`
+        echo "Committed as commit 0"
+
+  fi
+  # create a directory to store committed files
+  if ! test -e "./.legit/committed"
+      then
+       `mkdir ./.legit/committed`
+  fi
+  # move files from index to committed dir
+  filenames=`ls ./.legit/index/*` 2>/dev/null
+  for eachfile in $filenames
+  do
+     commit_file=`echo $eachfile | cut -d'/' -f4`
+     temp=${num}_${commit_file}
+     if ! test -e "./.legit/committed/$commit_file"
+     then
+      `mkdir ./.legit/committed/$commit_file`
+      `mkdir ./.legit/committed/$commit_file/$num`
+     else
+       `mkdir ./.legit/committed/$commit_file/$num`
+    fi
+    cp "$eachfile" "./.legit/committed/$commit_file/$num"
+
+  done
+  rm -rf "./.legit/files"
+fi

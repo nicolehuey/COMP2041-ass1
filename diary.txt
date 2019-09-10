@@ -1,0 +1,20 @@
+Date	    Start	 Stop	    Activity	                         Comments
+29/06/19	14:00	17:30	brainstorm and coding subshell0	  implemented legit-init and add
+29/06/19	20:00	23:00	Coding                            90% done subshell0, need more error checking
+30/06/19  10:00 11:00 Coding                            error checking for subshell0
+03/07/19  9:00  12:00 Debugging                         debug error messages and legit add,commit
+03/07/19  21:00 00:00 Debugging                         passed all autotest for subshell0
+04/07/19  10:00 12:00 Coding                            started on subshell1
+05/07/19  23:00 01:00 Coding                            working on commit -a, passed test 9 and 10
+06/07/19  21:00 00:00 Coding                            working on legit rm, error checking done
+07/07/19  00:00 00:30 Coding                            done for legit-rm including force and cached, need Debugging
+07/07/19  16:20 21:00 Debugging                         debug legit-rm , fixed legit-rm ,left status for subshell1
+08/07/19  22:00 00:00 Coding                            started on legit-status, left files that are removed
+09/07/19  16:30 17:30 Coding                            done on legit-status, need debugging
+09/07/19  17:30 18:00 Debugging                         passed all tests for subshell1, fixed legit-add,commit and rm
+10/07/19  00:00 01:00 Write testfiles                   started on writing testfiles
+10/07/19  17:00 19:00 Debugging and writing testfiles   debug commit -a and work on test files
+11/07/19  16:30 19:00 Coding                            Started on subshell2
+11/07/19  20:00 23:30 Coding and writing testfiles      Branch and checkout kinda works, finish half of testfiles
+12/07/19  10:30 12:30 Writing testfiles                 Finish testfiles
+12/07/19  1:00  02:00 Coding                            Started on error msgs for merge, give all files 

@@ -1,0 +1,70 @@
+#!/bin/dash
+
+# check if .legit repo is initialised
+if ! test -e ".legit"
+  then
+    echo "legit-show: error: no .legit directory containing legit repository exists" 1>&2
+    exit 1
+fi
+
+# check if there exist commits
+if ! test -e "./.legit/log.txt"
+then
+  echo "legit-show: error: your repository does not have any commits yet" 1>&2
+  exit 1
+fi
+
+# check for correct number of arguments
+if test $# != 1
+then
+  echo "usage: legit-show <commit>:<filename>" 1>&2
+
+# check for valid arguments
+elif test $# -eq 1
+then
+  if !(echo $1 | egrep -q ^[0-9]*:[a-zA-Z0-9._\-]+$)
+  then
+    echo "legit-show: error: invalid object $1" 1>&2
+    exit 1
+  else
+    filename=`echo $1|cut -d':' -f2`
+    number=`echo $1|egrep -o [0-9]+`
+  fi
+
+# if commit is omitted print contents of file in index
+# print error msg if the file is not index
+  if test -z "$number"
+  then
+    if test -e "./.legit/index/$filename"
+    then
+      echo "`cat ./.legit/index/$filename`"
+    else
+      echo "legit-show: error: '$filename' not found in index" 1>&2
+      exit 1
+    fi
+
+  # error msg if commit number exceeds latest commit
+  else
+     latest_commit=`head -1 "./.legit/log.txt" | cut -d' ' -f1`
+     if test $number -gt $latest_commit
+     then
+       echo "legit-show: error: unknown commit '$number'" 1>&2
+       exit 1
+     fi
+
+    # show content of the committed file
+    # print error msg if the committed file doesnt exist at that number of commit
+     if test -e "./.legit/committed/$filename"
+     then
+       if test -e "./.legit/committed/$filename/$number"
+       then
+         echo "`cat ./.legit/committed/$filename/$number/*`"
+        else
+         echo "legit-show: error: '$filename' not found in commit $number" 1>&2
+        fi
+     else
+       echo "legit-show: error: '$filename' not found in commit $number" 1>&2
+     fi
+
+  fi
+fi
